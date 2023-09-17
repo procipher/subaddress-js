@@ -5,6 +5,8 @@ const Buffer = require('safe-buffer').Buffer;
 
 const ed25519 = require('elliptic').eddsa('ed25519');
 
+var DEFAULT_NETWORK_TYPE = 'prod';
+
 const cnBase58 = (function () {
   var b58 = {};
   var alphabet_str = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -139,8 +141,10 @@ function asciiToHex(str) {
   return a.join('');
 }
 
-const PUBLIC_ADDRESS_PREFIX_HEX = '12';
-const PUBLIC_SUBADDRESS_PREFIX_HEX = '2a';
+const MAINNET_PUBLIC_ADDRESS_PREFIX_HEX = '12';
+const MAINNET_PUBLIC_SUBADDRESS_PREFIX_HEX = '2a';
+const STAGENET_PUBLIC_ADDRESS_PREFIX_HEX = '18';
+const STAGENET_PUBLIC_SUBADDRESS_PREFIX_HEX = '24';
 const SUBADDR_HEX = asciiToHex('SubAddr') + '00';
 
 function getSubaddressPublicSpendKeyPoint(privateViewKeyBytes, publicSpendKeyBytes, accountIndex, subaddressIndex) {
@@ -154,18 +158,31 @@ function getSubaddressPublicSpendKeyPoint(privateViewKeyBytes, publicSpendKeyByt
   return D;
 }
 
-function getSubaddress(privateViewKeyHex, publicSpendKeyHex, accountIndex, subaddressIndex) {
+function getSubaddress(privateViewKeyHex, publicSpendKeyHex, accountIndex, subaddressIndex, networkType) {
+
+  let publicAddressPrefixHex, publicSubaddressPrefixHex;
+
+  networkType = networkType || DEFAULT_NETWORK_TYPE;
+  if (networkType === 'stagenet') {
+    publicAddressPrefixHex = STAGENET_PUBLIC_ADDRESS_PREFIX_HEX;
+    publicSubaddressPrefixHex = STAGENET_PUBLIC_SUBADDRESS_PREFIX_HEX;
+  } else if (networkType === 'prod') {
+    publicAddressPrefixHex = MAINNET_PUBLIC_ADDRESS_PREFIX_HEX;
+    publicSubaddressPrefixHex = MAINNET_PUBLIC_SUBADDRESS_PREFIX_HEX;
+  } else {
+    throw new Error(`Unknown Monero Network ${networkType}`);
+  }
 
   let addressPrefix;
   let C, D;
 
   if(accountIndex==0 && subaddressIndex==0) {
-    addressPrefix = PUBLIC_ADDRESS_PREFIX_HEX;
+    addressPrefix = publicAddressPrefixHex;
     D = ed25519.decodePoint(publicSpendKeyHex);
     C = ed25519.curve.g.mul(elliptic.utils.intFromLE(privateViewKeyHex));
   }
   else {
-    addressPrefix = PUBLIC_SUBADDRESS_PREFIX_HEX;
+    addressPrefix = publicSubaddressPrefixHex;
     D = getSubaddressPublicSpendKeyPoint(privateViewKeyHex, publicSpendKeyHex, accountIndex, subaddressIndex);
     C = D.mul(elliptic.utils.intFromLE(privateViewKeyHex));
   }
